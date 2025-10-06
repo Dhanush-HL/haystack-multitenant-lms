@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "totara-lms-chatbot"
+version = "1.0.0"
+description = "Haystack-based MCP server for Totara LMS chatbot with MySQL integration"
+authors = [
+    {name = "Your Company", email = "dev@company.com"}
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "haystack-ai>=2.0.0",
+    "mcp>=1.0.0",
+    "mysql-connector-python>=8.0.0",
+    "chromadb>=0.4.0",
+    "ollama>=0.2.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "asyncio",
+    "uuid"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true

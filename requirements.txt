@@ -1,0 +1,43 @@
+# HayStack Production Dependencies
+# ================================
+
+# Core Framework Dependencies  
+haystack-ai>=2.0.0
+mysql-connector-python>=8.0.0
+pymysql>=1.1.0
+sqlalchemy>=2.0.0
+chromadb>=0.4.0
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+
+# MCP (Model Context Protocol) Dependencies
+mcp>=1.0.0
+fastmcp>=0.9.0
+
+# LLM and AI Dependencies
+ollama>=0.2.0
+
+# Data Processing (Essential only)
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Web Framework and API
+fastapi>=0.100.0
+uvicorn>=0.23.0
+requests>=2.31.0
+aiohttp>=3.8.0
+
+# Security and Authentication
+cryptography>=41.0.0
+passlib>=1.7.4
+pyjwt>=2.8.0
+
+# Production Server
+gunicorn>=21.2.0
+
+# Logging
+structlog>=23.1.0
+
+# Standard Library Dependencies (No installation needed)
+# json, re, time, asyncio, typing, dataclasses
+# os, sys, datetime, uuid, urllib, hashlib, hmac, logging
