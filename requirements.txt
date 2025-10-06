@@ -17,9 +17,11 @@ fastmcp>=0.9.0
 # LLM and AI Dependencies
 ollama>=0.2.0
 
-# Data Processing (Essential only)
+# Data Processing and ML
 pandas>=2.0.0
 numpy>=1.24.0
+sentence-transformers>=2.2.0
+scikit-learn>=1.3.0
 
 # Web Framework and API
 fastapi>=0.100.0
@@ -35,8 +37,14 @@ pyjwt>=2.8.0
 # Production Server
 gunicorn>=21.2.0
 
-# Logging
+# Logging and Monitoring
 structlog>=23.1.0
+rich>=13.0.0
+
+# Additional Utilities
+click>=8.1.0
+tqdm>=4.65.0
+pytz>=2023.3
 
 # Standard Library Dependencies (No installation needed)
 # json, re, time, asyncio, typing, dataclasses
