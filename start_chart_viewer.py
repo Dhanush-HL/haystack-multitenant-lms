@@ -33,7 +33,7 @@ def start_chart_viewer():
             browser_thread.daemon = True
             browser_thread.start()
             
-            print("🔧 Make sure your HayStack FastAPI server is running on port 8000")
+            print("🔧 Make sure your HayStack MCP server is running on port 3001")
             print("⚡ Press Ctrl+C to stop the server")
             
             httpd.serve_forever()

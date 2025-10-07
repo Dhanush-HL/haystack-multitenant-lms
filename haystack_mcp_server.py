@@ -1710,7 +1710,15 @@ Generate SQL:"""
             risk_level = router_result.get("risk_level", "low")
             
             # Resolve user IDs from router output
-            resolved_user_id = targets.get("user_id") or requesting_user_id or user_id or 71
+            resolved_user_id = targets.get("user_id") or requesting_user_id or user_id
+            if not resolved_user_id:
+                logger.error("No valid user_id provided for query processing")
+                return {
+                    'type': 'access_denied',
+                    'intent': 'invalid_user',
+                    'error': 'User authentication required',
+                    'message': 'Valid user_id is required for data access'
+                }
             target_user_id = targets.get("target_user_id")
             course_id = targets.get("course_id")
             
@@ -1909,7 +1917,14 @@ Generate SQL:"""
         if extracted_user_id is not None:
             user_id = extracted_user_id
         elif user_id is None:
-            user_id = requesting_user_id or 71
+            user_id = requesting_user_id
+            if not user_id:
+                logger.error("No valid user_id available for heuristic processing")
+                return {
+                    'type': 'access_denied',
+                    'intent': 'invalid_user', 
+                    'error': 'User authentication required'
+                }
         
         # Basic query type classification  
         if any(phrase in user_input_lower for phrase in ['my courses', 'i am enrolled', 'my enrolled courses', 'what are my enrolled', 'courses i am enrolled', 'my enrollment']):
@@ -1961,7 +1976,14 @@ Generate SQL:"""
                 }
             
             # Extract user_id from processed_query if available
-            user_id = processed_query.get('user_id', 71) if processed_query else 71
+            user_id = processed_query.get('user_id') if processed_query else None
+            if not user_id:
+                return {
+                    'success': False,
+                    'content': 'Error: Valid user_id is required for query execution',
+                    'sql': 'N/A - Missing user_id',
+                    'row_count': 0
+                }
             
             # CRITICAL SECURITY CHECK: Validate cross-user access at execution level
             if requesting_user_id is not None and user_id != requesting_user_id:
@@ -2059,7 +2081,7 @@ Generate SQL:"""
             
         except Exception as e:
             # Extract user_id for error response
-            user_id = processed_query.get('user_id', 71) if processed_query else 71
+            user_id = processed_query.get('user_id') if processed_query else None
             sql_fallback = self._nl_to_sql_with_guardrails(user_input)
             return {
                 'success': False,
@@ -2607,13 +2629,13 @@ def initialize_haystack_mcp():
 # FastMCP Tools for HayStack Integration
 
 @mcp.tool()
-def haystack_query(question: str, user_id: int = 71) -> str:
+def haystack_query(question: str, user_id: int) -> str:
     """
     Execute a natural language query against HayStack Totara LMS database
     
     Args:
         question: Natural language question about the data
-        user_id: User ID for context (default: 71)
+        user_id: User ID for context (required for security)
     
     Returns:
         Formatted response with query results
@@ -2784,18 +2806,26 @@ def haystack_raw_sql(sql: str) -> str:
         return f"❌ SQL execution error: {str(e)}"
 
 
-def _generate_chart_internal(question: str, user_id: int = 71) -> str:
+def _generate_chart_internal(question: str, user_id: int) -> str:
     """
     Internal function to generate Chart.js specification from a natural-language request with RBAC-safe data.
     
     Args:
         question: Natural language chart request (e.g., "bar chart of enrollments per course")
-        user_id: User ID for RBAC context (default: 71)
+        user_id: User ID for RBAC context (required for security)
     
     Returns:
         Strict JSON with chart spec, html_snippet, and sql_used
     """
     global haystack_mcp
+    
+    # Validate user_id is provided
+    if not user_id or user_id <= 0:
+        return json.dumps({
+            "status": "error", 
+            "message": "Valid user_id is required for chart generation"
+        })
+    
     if not haystack_mcp:
         # Try to initialize if not already done
         initialize_haystack_mcp()
@@ -3142,17 +3172,26 @@ Emit ONLY the JSON, no explanations:"""
         # 6) Return comprehensive JSON response
         # Store chart for web viewing
         from chart_storage import chart_storage
+        # Ensure we have a valid user_id for storage (should never be None at this point)
+        if not user_id or user_id <= 0:
+            return json.dumps({
+                "status": "error",
+                "message": "Cannot store chart: invalid user_id",
+                "sql_used": sql
+            })
+        
         stored_chart_id = chart_storage.store_chart({
             'chartjs_spec': asdict(chart_spec),
             'html_snippet': html_snippet,
             'chart_type': chart_type,
             'title': title,
             'sql_used': sql,
-            'row_count': len(df)
-        }, user_id or 71)
+            'row_count': len(df),
+            'user_id': user_id
+        })
         
         # Generate viewing URL
-        chart_view_url = f"http://localhost:3000/chart/{stored_chart_id}"
+        chart_view_url = f"http://localhost:8080/chart_viewer.html?chart_id={stored_chart_id}"
 
         payload = {
             "status": "ok",
@@ -3183,17 +3222,24 @@ Emit ONLY the JSON, no explanations:"""
 
 
 @mcp.tool()
-def haystack_chart(question: str, user_id: int = 71) -> str:
+def haystack_chart(question: str, user_id: int) -> str:
     """
     Build a Chart.js specification from a natural-language request with RBAC-safe data.
     
     Args:
         question: Natural language chart request (e.g., "bar chart of enrollments per course")
-        user_id: User ID for RBAC context (default: 71)
+        user_id: User ID for RBAC context (required for security)
     
     Returns:
         Strict JSON with chart spec, html_snippet, and sql_used
     """
+    # Validate user_id before proceeding
+    if not user_id or user_id <= 0:
+        return json.dumps({
+            "status": "error",
+            "message": "Valid user_id is required for chart generation"
+        })
+    
     return _generate_chart_internal(question, user_id)
 
 
