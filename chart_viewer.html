@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HayStack Chart Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .chart-container {
+            position: relative;
+            height: 600px;
+            margin: 20px 0;
+        }
+        .login-form {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="password"], textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .chart-info {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        #chartDisplay {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 HayStack Chart Viewer</h1>
+        
+        <!-- Login Form -->
+        <div id="loginForm">
+            <div class="login-form">
+                <h3>Login to View Charts</h3>
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" value="user_2" placeholder="Enter username">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" value="password123" placeholder="Enter password">
+                </div>
+                <div class="form-group">
+                    <label for="chartQuery">Chart Request:</label>
+                    <textarea id="chartQuery" rows="3" placeholder="Give me a bar graph of the most popular courses by enrollment of the year 2024">Give me a bar graph of the most popular courses by enrollment of the year 2024</textarea>
+                </div>
+                <button onclick="generateChart()">🚀 Generate Chart</button>
+                <div id="status"></div>
+            </div>
+        </div>
+
+        <!-- Chart Display -->
+        <div id="chartDisplay">
+            <div class="chart-info">
+                <h3 id="chartTitle">Chart Loading...</h3>
+                <p><strong>Type:</strong> <span id="chartType">-</span></p>
+                <p><strong>Data Points:</strong> <span id="dataPoints">-</span></p>
+                <p><strong>SQL Used:</strong> <code id="sqlUsed">-</code></p>
+            </div>
+            <div class="chart-container">
+                <canvas id="chartCanvas"></canvas>
+            </div>
+            <button onclick="showLoginForm()">📊 Generate New Chart</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let currentChart = null;
+
+        function showStatus(message, isError = false) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${isError ? 'error' : 'success'}`;
+        }
+
+        function showLoginForm() {
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('chartDisplay').style.display = 'none';
+            if (currentChart) {
+                currentChart.destroy();
+                currentChart = null;
+            }
+        }
+
+        async function generateChart() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const query = document.getElementById('chartQuery').value;
+
+            if (!username || !password || !query) {
+                showStatus('Please fill in all fields', true);
+                return;
+            }
+
+            showStatus('🔐 Authenticating...');
+
+            try {
+                // Step 1: Login
+                const loginResponse = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+
+                if (!loginResponse.ok) {
+                    throw new Error('Login failed');
+                }
+
+                const loginData = await loginResponse.json();
+                const token = loginData.access_token;
+
+                showStatus('🏗️ Creating session...');
+
+                // Step 2: Create session
+                const sessionResponse = await fetch(`${API_BASE}/sessions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        title: 'Chart Session'
+                    })
+                });
+
+                const sessionData = await sessionResponse.json();
+                const sessionId = sessionData.session_id;
+
+                showStatus('🧵 Creating thread...');
+
+                // Step 3: Create thread
+                const threadResponse = await fetch(`${API_BASE}/threads`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        title: 'Chart Thread'
+                    })
+                });
+
+                const threadData = await threadResponse.json();
+                const threadId = threadData.thread_id;
+
+                showStatus('📊 Generating chart...');
+
+                // Step 4: Generate chart
+                const chartResponse = await fetch(`${API_BASE}/query`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        thread_id: threadId
+                    })
+                });
+
+                const chartData = await chartResponse.json();
+
+                if (chartData.is_chart && chartData.chart_spec) {
+                    displayChart(chartData);
+                } else {
+                    throw new Error('Chart generation failed: ' + (chartData.result || 'Unknown error'));
+                }
+
+            } catch (error) {
+                showStatus('❌ Error: ' + error.message, true);
+                console.error('Chart generation error:', error);
+            }
+        }
+
+        function displayChart(chartData) {
+            // Update chart info
+            document.getElementById('chartTitle').textContent = chartData.chart_title || 'Chart';
+            document.getElementById('chartType').textContent = chartData.chart_type || 'Unknown';
+            document.getElementById('dataPoints').textContent = chartData.row_count || 0;
+            document.getElementById('sqlUsed').textContent = chartData.sql_used || 'N/A';
+
+            // Hide login form, show chart
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('chartDisplay').style.display = 'block';
+
+            // Destroy existing chart if any
+            if (currentChart) {
+                currentChart.destroy();
+            }
+
+            // Create new chart
+            const ctx = document.getElementById('chartCanvas').getContext('2d');
+            currentChart = new Chart(ctx, {
+                type: chartData.chart_spec.type,
+                data: chartData.chart_spec.data,
+                options: {
+                    ...chartData.chart_spec.options,
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        ...chartData.chart_spec.options.plugins,
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+
+            showStatus('✅ Chart generated successfully!');
+        }
+
+        // Auto-load chart on page load if you want
+        // generateChart();
+    </script>
+</body>
+</html>
